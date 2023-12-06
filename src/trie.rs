@@ -104,4 +104,25 @@ impl<const ALPHABET_SIZE: usize> Trie<ALPHABET_SIZE> {
             result
         }
     }
+
+    pub fn count_matches(&self, word: &[Option<usize>]) -> usize {
+        if word.is_empty() {
+            return if self.end_of_word { 1 } else { 0 };
+        }
+        if let Some(c) = word[0] {
+            if let Some(child) = &self.children[c] {
+                child.as_ref().count_matches(&word[1..])
+            } else {
+                0
+            }
+        } else {
+            let mut result: usize = 0;
+            for child in self.children.iter() {
+                if let Some(child) = child {
+                    result += child.as_ref().count_matches(&word[1..]);
+                }
+            }
+            result
+        }
+    }
 }

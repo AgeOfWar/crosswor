@@ -1,4 +1,4 @@
-use std::{io::{BufRead, Result}, collections::HashMap};
+use std::io::{BufRead, Result};
 
 use rand::Rng;
 
@@ -6,14 +6,14 @@ use crate::trie::Trie;
 
 pub struct Matcher {
     trie: Trie<26>,
-    find_cache: HashMap<Vec<Option<char>>, Vec<String>>,
+    word_count_by_length: Vec<usize>,
 }
 
 impl Matcher {
     fn new() -> Self {
         Self {
             trie: Trie::new(),
-            find_cache: HashMap::new(),
+            word_count_by_length: Vec::new(),
         }
     }
 
@@ -31,8 +31,23 @@ impl Matcher {
     }
 
     pub fn insert(&mut self, word: &str) {
+        if word.chars().any(|c| !c.is_ascii_uppercase() && !c.is_ascii_lowercase()) {
+            panic!("Invalid word: {}", word);
+        }
         let word = word.chars().map(char_to_int).collect::<Vec<_>>();
         self.trie.insert(&word);
+        if word.len() >= self.word_count_by_length.len() {
+            self.word_count_by_length.resize(word.len() + 1, 0);
+        }
+        self.word_count_by_length[word.len()] += 1;
+    }
+
+    pub fn word_count_by_length(&self, len: usize) -> usize {
+        if len >= self.word_count_by_length.len() {
+            0
+        } else {
+            self.word_count_by_length[len]
+        }
     }
 
     pub fn find(&self, word: &[Option<char>]) -> Vec<String> {
@@ -41,34 +56,15 @@ impl Matcher {
         result.iter().map(|w| w.iter().rev().map(|c| int_to_char(*c)).collect::<String>()).collect::<Vec<_>>()
     }
 
-    pub fn find_vec(&self, word: &Vec<Option<char>>) -> Vec<String> {
-        let trie_word = word.iter().map(|c| c.map(char_to_int)).collect::<Vec<_>>();
-        let result = self.trie.find_reverse(&trie_word);
-        result.iter().map(|w| w.iter().rev().map(|c| int_to_char(*c)).collect::<String>()).collect::<Vec<_>>()
-    }
-
-    pub fn find_vec_cached(&mut self, word: &Vec<Option<char>>) -> Vec<String> {
-        if let Some(result) = self.find_cache.get(word) {
-            return result.clone();
-        }
-        let result = self.find_vec(word);
-        self.find_cache.insert(word.clone(), result.clone());
-        result
-    }
-
-    pub fn find_vec_random<R: Rng + ?Sized>(&self, word: &Vec<Option<char>>, rng: &mut R) -> Vec<String> {
+    pub fn find_vec_random<R: Rng + ?Sized>(&self, word: &[Option<char>], rng: &mut R) -> Vec<String> {
         let trie_word = word.iter().map(|c| c.map(char_to_int)).collect::<Vec<_>>();
         let result = self.trie.find_reverse_random(&trie_word, rng);
         result.iter().map(|w| w.iter().rev().map(|c| int_to_char(*c)).collect::<String>()).collect::<Vec<_>>()
     }
 
-    pub fn find_vec_random_cached<R: Rng + ?Sized>(&mut self, word: &Vec<Option<char>>, rng: &mut R) -> Vec<String> {
-        if let Some(result) = self.find_cache.get(word) {
-            return result.clone();
-        }
-        let result = self.find_vec_random(word, rng);
-        self.find_cache.insert(word.clone(), result.clone());
-        result
+    pub fn count_matches(&self, word: &[Option<char>]) -> usize {
+        let trie_word = word.iter().map(|c| c.map(char_to_int)).collect::<Vec<_>>();
+        self.trie.count_matches(&trie_word)
     }
 }
 

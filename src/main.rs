@@ -1,6 +1,8 @@
+#![allow(dead_code)]
+
 use std::time::Instant;
 
-use crossword::{Pos, Cell, Crossword};
+use crossword::Crossword;
 use matcher::Matcher;
 
 mod crossword;
@@ -9,21 +11,25 @@ mod matcher;
 
 fn main() {
     let mut rng = rand::thread_rng();
-    let mut matcher = Matcher::from_file("words.italian.txt").unwrap();
-    let mut crossword = Crossword::<13, 8>::from_str("
-        □ □ □ □ ■ □ □ □ □ □ □ □ □
-        □ □ □ ■ □ □ □ □ □ ■ □ □ □
-        □ □ ■ □ □ □ □ □ ■ □ □ □ □
-        □ ■ □ □ □ □ ■ ■ □ □ □ □ □
-        □ □ □ □ □ ■ ■ □ □ □ □ ■ □
-        □ □ □ □ ■ □ □ □ □ □ ■ □ □
-        □ □ □ ■ □ □ □ □ □ ■ □ □ □
-        □ □ □ □ □ □ □ □ ■ □ □ □ □
+    let matcher = Matcher::from_file("words.italian.txt").unwrap();
+    let mut crossword = Crossword::from_str("
+        □ □ □ □ □ ■ □ □ □ □ □ ■
+        □ □ □ □ ■ □ □ □ □ □ □ □
+        □ □ □ ■ □ □ □ □ □ ■ □ □
+        □ □ ■ □ □ □ □ □ ■ □ □ □
+        □ ■ □ □ □ □ □ ■ □ □ □ □
+        □ □ □ □ □ □ ■ □ □ □ □ □
+        □ □ □ □ □ ■ □ □ □ □ □ □
+        □ □ □ □ ■ □ □ □ □ □ ■ □
+        □ □ □ ■ □ □ □ □ □ ■ □ □
+        □ □ ■ □ □ □ □ □ ■ □ □ □
+        □ □ □ □ □ □ □ ■ □ □ □ □
+        ■ □ □ □ □ □ ■ □ □ □ □ □
     ");
     println!("{}", crossword);
 
     let start = Instant::now();
-    let success = crossword.fill(&mut matcher, &mut rng);
+    let success = crossword.fill(&matcher, &mut rng);
     let elapsed = start.elapsed();
     println!();
     if success {
