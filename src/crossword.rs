@@ -12,17 +12,17 @@ pub enum Cell {
     Letter(char),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Crossword {
     width: usize,
     height: usize,
     grid: Vec<Vec<Cell>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Pos(pub usize, pub usize); 
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     Across,
     Down,
@@ -96,8 +96,8 @@ impl Crossword {
         }
     }
 
-    pub fn across_positions(&self) -> Vec<(Pos, usize)> {
-        let mut positions = Vec::new();
+    pub fn across_positions(&self) -> HashMap<Pos, usize> {
+        let mut positions = HashMap::new();
         for y in 0..self.height {
             let mut start: Pos = Pos(0, y);
             for x in 0..self.width {
@@ -109,20 +109,20 @@ impl Crossword {
                     },
                     Cell::Black => {
                         if x != 0 && self[Pos(x - 1, y)] != Cell::Black {
-                            positions.push((start, x - start.0));
+                            positions.insert(start, x - start.0);
                         }
                     },
                 }
             }
             if self[Pos(self.width-1, y)] != Cell::Black && start.0 < self.width {
-                positions.push((start, self.width - start.0));
+                positions.insert(start, self.width - start.0);
             }
         }
         positions
     }
 
-    pub fn down_positions(&self) -> Vec<(Pos, usize)> {
-        let mut positions = Vec::new();
+    pub fn down_positions(&self) -> HashMap<Pos, usize> {
+        let mut positions = HashMap::new();
         for x in 0..self.width {
             let mut start: Pos = Pos(x, 0);
             for y in 0..self.height {
@@ -134,13 +134,13 @@ impl Crossword {
                     },
                     Cell::Black => {
                         if y != 0 && self[Pos(x, y - 1)] != Cell::Black {
-                            positions.push((start, y - start.1));
+                            positions.insert(start, y - start.1);
                         }
                     },
                 }
             }
             if self[Pos(x, self.height-1)] != Cell::Black && start.1 < self.height {
-                positions.push((start, self.height - start.1));
+                positions.insert(start, self.height - start.1);
             }
         }
         positions
@@ -206,14 +206,14 @@ impl Crossword {
         result
     }
 
-    pub fn get_pattern(&self, pos: Pos, length: usize, direction: Direction) -> Vec<Option<char>> {
+    pub fn get_pattern(&self, direction: Direction, pos: Pos, length: usize) -> Vec<Option<char>> {
         match direction {
             Direction::Across => self.get_pattern_across(pos, length),
             Direction::Down => self.get_pattern_down(pos, length),
         }
     }
 
-    pub fn set_pattern_across(&mut self, pattern: &[Option<char>], pos: Pos) {
+    pub fn set_pattern_across(&mut self, pos: Pos, pattern: &[Option<char>]) {
         let mut x = pos.0;
         let y = pos.1;
         for c in pattern {
@@ -225,7 +225,7 @@ impl Crossword {
         }
     }
 
-    pub fn set_pattern_down(&mut self, pattern: &[Option<char>], pos: Pos) {
+    pub fn set_pattern_down(&mut self, pos: Pos, pattern: &[Option<char>]) {
         let x = pos.0;
         let mut y = pos.1;
         for c in pattern {
@@ -237,10 +237,10 @@ impl Crossword {
         }
     }
 
-    pub fn set_pattern(&mut self, pattern: &[Option<char>], pos: Pos, direction: Direction) {
+    pub fn set_pattern(&mut self, direction: Direction, pos: Pos, pattern: &[Option<char>]) {
         match direction {
-            Direction::Across => self.set_pattern_across(pattern, pos),
-            Direction::Down => self.set_pattern_down(pattern, pos),
+            Direction::Across => self.set_pattern_across(pos, pattern),
+            Direction::Down => self.set_pattern_down(pos, pattern),
         }
     }
 }
@@ -281,17 +281,17 @@ impl fmt::Display for Crossword {
 }
 
 impl Crossword {
-    pub fn fill<R: Rng + ?Sized>(&mut self, matcher: &Matcher, rng: &mut R) -> bool {
-        self.fill_recursive(matcher, &self.across_positions(), &self.down_positions(), rng, &mut HashMap::new())
+    pub fn fill(&mut self, matcher: &Matcher, rng: &mut impl Rng) -> bool {
+        self.fill_recursive(matcher, &self.across_positions().into_iter().collect(), &self.down_positions().into_iter().collect(), rng, &mut HashMap::new())
     }
 
-    fn fill_recursive<R: Rng + ?Sized>(&mut self, matcher: &Matcher, across: &Vec<(Pos, usize)>, down: &Vec<(Pos, usize)>, rng: &mut R, cache: &mut HashMap<Vec<Option<char>>, usize>) -> bool {
+    fn fill_recursive(&mut self, matcher: &Matcher, across: &Vec<(Pos, usize)>, down: &Vec<(Pos, usize)>, rng: &mut impl Rng, cache: &mut HashMap<Vec<Option<char>>, usize>) -> bool {
         let pos = self.choice_pos(matcher, across, down, cache);
         if pos.is_none() {
             return true;
         }
         let (pos, length, index, direction) = pos.unwrap();
-        let pattern = self.get_pattern(pos, length, direction);
+        let pattern = self.get_pattern(direction, pos, length);
         let matches = matcher.find_vec_random(pattern.as_slice(), rng);
         if matches.is_empty() {
             return false;
@@ -308,7 +308,7 @@ impl Crossword {
             if self.fill_recursive(matcher, &new_across, &new_down, rng, cache) {
                 return true;
             }
-            self.set_pattern(pattern.as_slice(), pos, direction);
+            self.set_pattern(direction, pos, pattern.as_slice());
         }
         false
     }
@@ -359,3 +359,81 @@ impl Crossword {
         }
     }
 }
+
+// impl Crossword {
+//     pub fn fill2<R: Rng + ?Sized>(&mut self, matcher: &Matcher, rng: &mut R) -> bool {
+//         let mut across_positions = self.across_positions();
+//         let mut down_positions = self.down_positions();
+//         let mut choice_cache = HashMap::new();
+//         while let Some(choice) = self.choice_pos2(matcher, &across_positions, &down_positions, &mut choice_cache) {
+//             let Choice(direction, pos, length) = choice;
+//             let pattern = self.get_pattern(direction, pos, length);
+//             let matches = matcher.find_vec_random(pattern.as_slice(), rng);
+//             if matches.is_empty() {
+//                 self.back_jump(matcher, choice);
+//                 continue;
+//             }
+//             for word in matches.iter() {
+//                 self.set_word(word, pos, direction);
+//                 if self.fill_recursive(matcher, &new_across, &new_down, rng, cache) {
+//                     return true;
+//                 }
+//                 self.set_pattern(direction, pos, pattern.as_slice());
+//             }
+//         }
+//         true
+//     }
+
+//     fn back_jump(&mut self, matcher: &Matcher, choice: Choice) {
+        
+//     }
+
+//     fn choice_pos2(&self, matcher: &Matcher, across: &HashMap<Pos, usize>, down: &HashMap<Pos, usize>, cache: &mut HashMap<Vec<Option<char>>, usize>) -> Option<Choice> {
+//         let mut across_best_start: Option<(Pos, usize)> = None;
+//         let mut across_best_score: usize = usize::MAX;
+//         for word in across {
+//             let (&pos, &length) = word;
+//             let cells = self.get_across(pos, length);
+//             let score = cache.get(&cells);
+//             let score = if score.is_none() {
+//                 let score = matcher.count_matches(cells.as_slice());
+//                 cache.insert(cells, score);
+//                 score
+//             } else {
+//                 *score.unwrap()
+//             };
+//             if across_best_start.is_none() || score < across_best_score {
+//                 across_best_start = Some((pos, length));
+//                 across_best_score = score;
+//             }
+//         }
+
+//         let mut down_best_start: Option<(Pos, usize)> = None;
+//         let mut down_best_score: usize = usize::MAX;
+//         for word in down {
+//             let (&pos, &length) = word;
+//             let cells = self.get_down(pos, length);
+//             let score = cache.get(&cells);
+//             let score = if score.is_none() {
+//                 let score = matcher.count_matches(cells.as_slice());
+//                 cache.insert(cells, score);
+//                 score
+//             } else {
+//                 *score.unwrap()
+//             };
+//             if down_best_start.is_none() || score < down_best_score {
+//                 down_best_start = Some((pos, length));
+//                 down_best_score = score;
+//             }
+//         }
+
+//         if across_best_score <= down_best_score {
+//             across_best_start.map(|pos| Choice(Direction::Across, pos.0, pos.1))
+//         } else {
+//             down_best_start.map(|pos| Choice(Direction::Down, pos.0, pos.1))
+//         }
+//     }
+// }
+
+#[derive(Debug, Hash)]
+struct Choice(Direction, Pos, usize);

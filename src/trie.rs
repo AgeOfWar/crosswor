@@ -29,7 +29,15 @@ impl<const ALPHABET_SIZE: usize> Trie<ALPHABET_SIZE> {
         node.end_of_word = true;
     }
 
-    pub fn find_reverse(&self, word: &[Option<usize>]) -> Vec<Vec<usize>> {
+    pub fn find(&self, word: &[Option<usize>]) -> Vec<Vec<usize>> {
+        let mut result = self.find_reverse(word);
+        for mut word in result {
+            word.reverse();
+        }
+        result
+    }
+
+    fn find_reverse(&self, word: &[Option<usize>]) -> Vec<Vec<usize>> {
         if word.is_empty() {
             let mut result = Vec::new();
             if self.end_of_word {
@@ -62,7 +70,15 @@ impl<const ALPHABET_SIZE: usize> Trie<ALPHABET_SIZE> {
         }
     }
 
-    pub fn find_reverse_random<R: Rng + ?Sized>(&self, word: &[Option<usize>], rng: &mut R) -> Vec<Vec<usize>> {
+    pub fn find_random(&self, word: &[Option<usize>], rng: &mut impl Rng) -> Vec<Vec<usize>> {
+        let mut result = self.find_reverse_random(word, rng);
+        for mut word in result {
+            word.reverse();
+        }
+        result
+    }
+
+    fn find_reverse_random(&self, word: &[Option<usize>], rng: &mut impl Rng) -> Vec<Vec<usize>> {
         if word.is_empty() {
             let mut result = Vec::new();
             if self.end_of_word {
@@ -102,6 +118,56 @@ impl<const ALPHABET_SIZE: usize> Trie<ALPHABET_SIZE> {
                 }
             }
             result
+        }
+    }
+
+    pub fn find_one_random(&self, word: &[Option<usize>], rng: &mut impl Rng) -> Option<Vec<usize>> {
+        let mut result = self.find_one_reverse_random(word, rng);
+        if let Some(word) = result.as_mut() {
+            word.reverse();
+        }
+        result
+    }
+
+    fn find_one_reverse_random(&self, word: &[Option<usize>], rng: &mut impl Rng) -> Option<Vec<usize>> {
+        if word.is_empty() {
+            if self.end_of_word {
+                return Some(Vec::new());
+            } else {
+                return None;
+            }
+        }
+        if let Some(c) = word[0] {
+            if let Some(child) = &self.children[c] {
+                let mut result = child.as_ref().find_one_reverse_random(&word[1..], rng);
+                if let Some(word) = result.as_mut() {
+                    word.push(c);
+                }
+                result
+            } else {
+                None
+            }
+        } else {
+            let random_offset = rng.gen_range(0..ALPHABET_SIZE);
+            for (c, child) in self.children.iter().enumerate().skip(random_offset) {
+                if let Some(child) = child {
+                    let mut child_result = child.find_one_reverse_random(&word[1..], rng);
+                    if let Some(word) = child_result.as_mut() {
+                        word.push(c);
+                        return Some(*word);
+                    }
+                }
+            }
+            for (c, child) in self.children.iter().enumerate().take(random_offset) {
+                if let Some(child) = child {
+                    let mut child_result = child.find_one_reverse_random(&word[1..], rng);
+                    if let Some(word) = child_result.as_mut() {
+                        word.push(c);
+                        return Some(*word);
+                    }
+                }
+            }
+            None
         }
     }
 

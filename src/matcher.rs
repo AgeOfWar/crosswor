@@ -52,14 +52,14 @@ impl Matcher {
 
     pub fn find(&self, word: &[Option<char>]) -> Vec<String> {
         let trie_word = word.iter().map(|c| c.map(char_to_int)).collect::<Vec<_>>();
-        let result = self.trie.find_reverse(&trie_word);
-        result.iter().map(|w| w.iter().rev().map(|c| int_to_char(*c)).collect::<String>()).collect::<Vec<_>>()
+        let result = self.trie.find(&trie_word);
+        result.iter().map(|w| w.iter().map(|c| int_to_char(*c)).collect::<String>()).collect()
     }
 
-    pub fn find_vec_random<R: Rng + ?Sized>(&self, word: &[Option<char>], rng: &mut R) -> Vec<String> {
+    pub fn find_vec_random(&self, word: &[Option<char>], rng: &mut impl Rng) -> Vec<String> {
         let trie_word = word.iter().map(|c| c.map(char_to_int)).collect::<Vec<_>>();
-        let result = self.trie.find_reverse_random(&trie_word, rng);
-        result.iter().map(|w| w.iter().rev().map(|c| int_to_char(*c)).collect::<String>()).collect::<Vec<_>>()
+        let result = self.trie.find_random(&trie_word, rng);
+        result.iter().map(|w| w.iter().map(|c| int_to_char(*c)).collect::<String>()).collect()
     }
 
     pub fn count_matches(&self, word: &[Option<char>]) -> usize {
